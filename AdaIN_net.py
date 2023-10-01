@@ -148,13 +148,21 @@ class AdaIN_net(nn.Module):
     def forward(self, content, style, alpha=1.0):
         assert 0 <= alpha <= 1
         if self.training:  # training
-            #   calculate Eq. (12) and Eq. (13), and return L_c and L_s from Eq. (11)
-            #
-            #   your code here ...
+            # Encode the content and style images
+            content_features = self.encode(content)
+            style_features = self.encode(style)
+
+            # Calculate content loss and style loss
+            loss_c = self.content_loss(content_features[-1], style_features[-1])
+            loss_s = self.style_loss(content_features, style_features)
 
             return loss_c, loss_s
         else:  # inference
-            #
-            #   your code here ...
+            # Encode the content image
+            content_features = self.encode(content)
+            style_features = self.encode(style)
+
+            # Perform AdaIN transformation
+            feat = self.adain(content_features[-1], style_features[-1] * alpha + (1 - alpha) * content_features[-1])
 
             return self.decode(feat)
