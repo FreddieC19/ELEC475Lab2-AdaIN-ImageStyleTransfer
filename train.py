@@ -2,11 +2,12 @@ import argparse
 import os
 import torch
 import torch.optim as optim
+import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from torchvision.datasets import ImageFolder
+from custom_dataset import custom_dataset
 from AdaIN_net import AdaIN_net
-import matplotlib.pyplot as plt
+
 
 # Define command-line arguments
 parser = argparse.ArgumentParser(description="Train AdaIN Style Transfer Model")
@@ -25,12 +26,24 @@ args = parser.parse_args()
 # Check if CUDA should be used
 device = torch.device("cuda" if args.cuda.upper() == "Y" and torch.cuda.is_available() else "cpu")
 
-# Create data loaders for COCO and Wikiart datasets
-transform = transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()])
+# Define transformations for content and style images
+content_transform = transforms.Compose([
+    transforms.Resize((256, 256)),  # Resize the image to a fixed size
+    transforms.ToTensor(),  # Convert the image to a PyTorch tensor
+])
 
-coco_loader = DataLoader(ImageFolder(args.content_dir, transform=transform), batch_size=args.b, shuffle=True, num_workers=4)
+style_transform = transforms.Compose([
+    transforms.Resize((256, 256)),  # Resize the image to a fixed size
+    transforms.ToTensor(),  # Convert the image to a PyTorch tensor
+])
 
-wikiart_loader = DataLoader(ImageFolder(args.style_dir, transform=transform), batch_size=args.b, shuffle=True, num_workers=4)
+# Create custom datasets for content and style images
+content_dataset = custom_dataset(dir=args.content_dir, transform=content_transform)
+style_dataset = custom_dataset(dir=args.style_dir, transform=style_transform)
+
+# Create data loaders for content and style datasets
+content_loader = DataLoader(content_dataset, batch_size=args.b, shuffle=True, num_workers=4)
+style_loader = DataLoader(style_dataset, batch_size=args.b, shuffle=True, num_workers=4)
 
 # Initialize the AdaIN_net model
 encoder = args.l
@@ -47,7 +60,7 @@ for epoch in range(args.e):
     model.train()
 
     # Iterate through both data loaders alternately
-    for batch_idx, (content, _), (style, _) in zip(coco_loader, wikiart_loader):
+    for batch_idx, (content, _), (style, _) in zip(content_loader, style_loader):
         content, style = content.to(device), style.to(device)
 
         # Zero the gradients
@@ -62,21 +75,20 @@ for epoch in range(args.e):
         optimizer.step()
 
         if batch_idx % 10 == 0:
-            print(f"Epoch [{epoch + 1}/{args.e}] Batch [{batch_idx + 1}/{len(coco_loader)}] Loss: {total_loss.item()}")
+            print(f"Epoch [{epoch + 1}/{args.e}] Batch [{batch_idx + 1}/{len(content_loader)}] Loss: {total_loss.item()}")
 
-# Save encoder and decoder checkpoints
-torch.save(model.encoder.state_dict(), args.l)
+# Save decoder
 torch.save(model.decoder.state_dict(), args.s)
 
 # Generate a sample output image
-sample_content, sample_style = next(iter(coco_loader))
-sample_content = sample_content.to(device)
-sample_style = sample_style.to(device)
+sample_content, sample_style = next(iter(content_loader)), next(iter(style_loader))
+sample_content = sample_content[0].unsqueeze(0).to(device)  # Take the first sample
+sample_style = sample_style[0].unsqueeze(0).to(device)  # Take the first sample
 output = model(sample_content, sample_style, alpha=args.gamma)
 output = output.squeeze(0).cpu().detach().numpy()  # Convert to numpy array
 output = output.transpose(1, 2, 0)  # Change channel order if needed
 
-
+# Save the sample output image
 plt.imsave(args.p, output)
 
 print("Training completed and model checkpoints saved!")
