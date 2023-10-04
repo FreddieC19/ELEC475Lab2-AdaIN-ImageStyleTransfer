@@ -164,7 +164,13 @@ class AdaIN_net(nn.Module):
             content_features = self.encode(content)
             style_features = self.encode(style)
 
+            # Resize style features to match content features' spatial dimensions
+            style_features_resized = [
+                nn.functional.interpolate(sf, size=content_features[-1].shape[-2:], mode='nearest') for sf in
+                style_features]
+
             # Perform AdaIN transformation
-            feat = self.adain(content_features[-1], style_features[-1] * alpha + (1 - alpha) * content_features[-1])
+            feat = self.adain(content_features[-1],
+                              style_features_resized[-1] * alpha + (1 - alpha) * content_features[-1])
 
             return self.decode(feat)

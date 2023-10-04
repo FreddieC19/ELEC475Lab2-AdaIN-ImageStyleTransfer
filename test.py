@@ -12,12 +12,12 @@ if __name__ == '__main__':
 	device = 'cpu'
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-content_image', type=str, help='test image')
-	parser.add_argument('-style_image', type=str, help='style image')
-	parser.add_argument('-encoder_file', type=str, help='encoder weight file')
-	parser.add_argument('-decoder_file', type=str, help='decoder weight file')
-	parser.add_argument('-alpha', type=float, default=1.0, help='Level of style transfer, value between 0 and 1')
-	parser.add_argument('-cuda', type=str, help='[y/N]')
+	parser.add_argument('-content_image', type=str, default="images/content/baboon.jpg", help='test image')
+	parser.add_argument('-style_image', type=str, default="images/style/brushstrokes.jpg", help='style image')
+	parser.add_argument('-encoder_file', type=str, default="encoder.pth", help='encoder weight file')
+	parser.add_argument('-decoder_file', type=str, default="decoder.pth", help='decoder weight file')
+	parser.add_argument('-alpha', type=float, default=0.9, help='Level of style transfer, value between 0 and 1')
+	parser.add_argument('-cuda', type=str, default="y", help='[y/N]')
 
 	opt = parser.parse_args()
 	content_image = Image.open(opt.content_image)
