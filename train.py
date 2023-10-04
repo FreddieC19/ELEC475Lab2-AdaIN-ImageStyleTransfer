@@ -1,94 +1,92 @@
 import argparse
-import os
 import torch
-import torch.optim as optim
-import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader
+import torch.nn as nn
+import torch.utils.data as data
+from pathlib import Path
+from tqdm import tqdm
+from tensorboardX import SummaryWriter
 from torchvision import transforms
 from custom_dataset import custom_dataset
-from AdaIN_net import AdaIN_net
-
+from AdaIN_net import AdaIN_net, encoder_decoder
 
 # Define command-line arguments
 parser = argparse.ArgumentParser(description="Train AdaIN Style Transfer Model")
-parser.add_argument("-content_dir", type=str, required=True, help="Path to content images directory")
-parser.add_argument("-style_dir", type=str, required=True, help="Path to style images directory")
+parser.add_argument("-content_dir", type=str, default="datasets/COCO1K/", help="Path to content images directory")
+parser.add_argument("-style_dir", type=str, default="datasets/WikiArt1k/", help="Path to style images directory")
 parser.add_argument("-gamma", type=float, default=1.0, help="Alpha blending parameter for AdaIN")
 parser.add_argument("-e", type=int, default=20, help="Number of epochs")
 parser.add_argument("-b", type=int, default=20, help="Batch size")
-parser.add_argument("-l", type=str, default="encoder.pth", help="Encoder model name")
-parser.add_argument("-s", type=str, default="decoder.pth", help="Decoder model name")
+parser.add_argument("-encoder_name", type=str, default="encoder.pth", help="Encoder model name")
+parser.add_argument("-decoder_name", type=str, default="decoder.pth", help="Decoder model name")
 parser.add_argument("-p", type=str, default="decoder.png", help="Path to save sample output image")
 parser.add_argument("-cuda", type=str, default="Y", help="Use CUDA (Y/N)")
-
 args = parser.parse_args()
 
-# Check if CUDA should be used
-device = torch.device("cuda" if args.cuda.upper() == "Y" and torch.cuda.is_available() else "cpu")
+def main():
+    # Set device to 'cuda' if available, otherwise 'cpu'
+    device = torch.device('cuda' if torch.cuda.is_available() and args.cuda == "Y" else 'cpu')
 
-# Define transformations for content and style images
-content_transform = transforms.Compose([
-    transforms.Resize((256, 256)),  # Resize the image to a fixed size
-    transforms.ToTensor(),  # Convert the image to a PyTorch tensor
-])
+    # Create a directory to save model checkpoints and logs
+    save_dir = Path('./experiments')
+    save_dir.mkdir(exist_ok=True, parents=True)
+    log_dir = Path('./logs')
+    log_dir.mkdir(exist_ok=True, parents=True)
+    writer = SummaryWriter(log_dir=str(log_dir))
 
-style_transform = transforms.Compose([
-    transforms.Resize((256, 256)),  # Resize the image to a fixed size
-    transforms.ToTensor(),  # Convert the image to a PyTorch tensor
-])
+    # Load the encoder from the provided file
+    encoder = encoder_decoder.encoder
+    encoder.load_state_dict(torch.load(args.encoder_name, map_location=device))
 
-# Create custom datasets for content and style images
-content_dataset = custom_dataset(dir=args.content_dir, transform=content_transform)
-style_dataset = custom_dataset(dir=args.style_dir, transform=style_transform)
+    # Load the decoder from the provided file (if available)
+    if Path(args.decoder_name).exists():
+        decoder = encoder_decoder.decoder
+        decoder.load_state_dict(torch.load(args.decoder_name, map_location=device))
+    else:
+        # Create a new decoder with random weights if not provided
+        decoder = encoder_decoder.decoder
 
-# Create data loaders for content and style datasets
-content_loader = DataLoader(content_dataset, batch_size=args.b, shuffle=True, num_workers=4)
-style_loader = DataLoader(style_dataset, batch_size=args.b, shuffle=True, num_workers=4)
+    decoder = decoder.to(device)
+    decoder.train()
 
-# Initialize the AdaIN_net model
-encoder = args.l
-model = AdaIN_net(encoder=encoder)
+    # Define the content transformation (you can customize this)
+    transform = transforms.Compose([
+        transforms.Resize(size=(512, 512)),
+        transforms.RandomCrop(256),
+        transforms.ToTensor()
+    ])
 
-# Move the model to the appropriate device
-model.to(device)
+    # Create a custom dataset for content images
+    content_dataset = custom_dataset(dir=args.content_dir, transform=transform)
+    content_loader = data.DataLoader(content_dataset, batch_size=args.b, shuffle=True, num_workers=16)
 
-# Define the optimizer (you can use different optimizers and learning rates)
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+    # Define the optimizer
+    optimizer = torch.optim.Adam(decoder.parameters(), lr=1e-4)
 
-# Training loop
-for epoch in range(args.e):
-    model.train()
+    # Training loop
+    for epoch in range(args.e):
+        for i, content_images in enumerate(content_loader):
+            content_images = content_images.to(device)
 
-    # Iterate through both data loaders alternately
-    for batch_idx, (content, _), (style, _) in zip(content_loader, style_loader):
-        content, style = content.to(device), style.to(device)
+            # Forward pass through the decoder
+            output = decoder(content_images)
 
-        # Zero the gradients
-        optimizer.zero_grad()
+            # Calculate the reconstruction loss (MSE loss)
+            loss = torch.nn.MSELoss()(output, content_images)
 
-        # Forward pass and compute loss
-        loss_c, loss_s = model(content, style, alpha=args.gamma)
-        total_loss = loss_c + loss_s
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        # Backpropagation
-        total_loss.backward()
-        optimizer.step()
+            writer.add_scalar('loss_reconstruction', loss.item(), epoch * len(content_loader) + i + 1)
 
-        if batch_idx % 10 == 0:
-            print(f"Epoch [{epoch + 1}/{args.e}] Batch [{batch_idx + 1}/{len(content_loader)}] Loss: {total_loss.item()}")
+            # Save the decoder's weights periodically
+            if (epoch * len(content_loader) + i + 1) % 10000 == 0 or (epoch == args.e - 1 and i == len(content_loader) - 1):
+                state_dict = decoder.state_dict()
+                for key in state_dict.keys():
+                    state_dict[key] = state_dict[key].to(torch.device('cpu'))
+                torch.save(state_dict, save_dir / f'decoder_iter_{epoch * len(content_loader) + i + 1}.pth.tar')
 
-# Save decoder
-torch.save(model.decoder.state_dict(), args.s)
+    writer.close()
 
-# Generate a sample output image
-sample_content, sample_style = next(iter(content_loader)), next(iter(style_loader))
-sample_content = sample_content[0].unsqueeze(0).to(device)  # Take the first sample
-sample_style = sample_style[0].unsqueeze(0).to(device)  # Take the first sample
-output = model(sample_content, sample_style, alpha=args.gamma)
-output = output.squeeze(0).cpu().detach().numpy()  # Convert to numpy array
-output = output.transpose(1, 2, 0)  # Change channel order if needed
-
-# Save the sample output image
-plt.imsave(args.p, output)
-
-print("Training completed and model checkpoints saved!")
+if __name__ == '__main__':
+    main()

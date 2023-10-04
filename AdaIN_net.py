@@ -73,6 +73,8 @@ class encoder_decoder:
         nn.Conv2d(64, 3, (3, 3)),
     )
 class AdaIN_net(nn.Module):
+    content_weight = 1.0
+    style_weight = 1e5
 
     def __init__(self, encoder, decoder=None):
         super(AdaIN_net, self).__init__()
