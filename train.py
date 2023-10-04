@@ -11,13 +11,12 @@ from custom_dataset import custom_dataset
 from AdaIN_net import AdaIN_net, encoder_decoder
 
 def main():
-    # Define command-line arguments
     parser = argparse.ArgumentParser(description="Train AdaIN Style Transfer Model")
     parser.add_argument("-content_dir", type=str, default="datasets/COCO1K/", help="Path to content images directory")
     parser.add_argument("-style_dir", type=str, default="datasets/WikiArt1k/", help="Path to style images directory")
     parser.add_argument("-gamma", type=float, default=1.0, help="Alpha blending parameter for AdaIN")
     parser.add_argument("-e", type=int, default=20, help="Number of epochs")
-    parser.add_argument("-b", type=int, default=20, help="Batch size")
+    parser.add_argument("-b", type=int, default=8, help="Batch size")
     parser.add_argument("-encoder_name", type=str, default="encoder.pth", help="Encoder model name")
     parser.add_argument("-decoder_name", type=str, default="decoder.pth", help="Decoder model name")
     parser.add_argument("-p", type=str, default="decoder.png", help="Path to save sample output image")
@@ -46,10 +45,10 @@ def main():
     ])
 
     style_dataset = custom_dataset(dir=args.style_dir, transform=transform)
-    style_loader = DataLoader(style_dataset, batch_size=args.b, shuffle=True, num_workers=16)
+    style_loader = DataLoader(style_dataset, batch_size=args.b, shuffle=True, num_workers=4)  # Reduced num_workers
 
     content_dataset = custom_dataset(dir=args.content_dir, transform=transform)
-    content_loader = DataLoader(content_dataset, batch_size=args.b, shuffle=True, num_workers=16)
+    content_loader = DataLoader(content_dataset, batch_size=args.b, shuffle=True, num_workers=4)  # Reduced num_workers
 
     optimizer = optim.Adam(model.decoder.parameters(), lr=1e-4)
 
@@ -57,7 +56,7 @@ def main():
     log_dir.mkdir(exist_ok=True, parents=True)
     writer = SummaryWriter(log_dir=str(log_dir))
 
-    print("Start Training on ",device)
+    print("Start Training on ", device)
     for epoch in range(args.e):
         for i, (content_images, style_images) in enumerate(zip(content_loader, style_loader)):
             content_images, style_images = content_images.to(device), style_images.to(device)
@@ -81,7 +80,8 @@ def main():
             loss.backward()
             optimizer.step()
 
-            print(f'Epoch [{epoch + 1}/{args.e}], Step [{i + 1}/{len(content_loader)}], 'f'Reconstruction Loss: {loss_reconstruction.item():.4f}, Style Loss: {style_loss.item():.4f}')
+            print(f'Epoch [{epoch + 1}/{args.e}], Step [{i + 1}/{len(content_loader)}], '
+                  f'Reconstruction Loss: {loss_reconstruction.item():.4f}, Style Loss: {style_loss.item():.4f}')
 
             writer.add_scalar('loss_reconstruction', loss_reconstruction.item(), epoch * len(content_loader) + i + 1)
             writer.add_scalar('loss_style', style_loss.item(), epoch * len(content_loader) + i + 1)
