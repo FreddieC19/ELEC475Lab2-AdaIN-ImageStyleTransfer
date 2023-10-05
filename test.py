@@ -13,7 +13,7 @@ if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-content_image', type=str, default="images/content/baboon.jpg", help='test image')
-	parser.add_argument('-style_image', type=str, default="images/style/brushstrokes.jpg", help='style image')
+	parser.add_argument('-style_image', type=str, default="images/style/Andy_Warhol_97.jpg", help='style image')
 	parser.add_argument('-encoder_file', type=str, default="encoder.pth", help='encoder weight file')
 	parser.add_argument('-decoder_file', type=str, default="decoder.pth", help='decoder weight file')
 	parser.add_argument('-alpha', type=float, default=0.9, help='Level of style transfer, value between 0 and 1')
