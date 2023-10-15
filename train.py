@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
+import matplotlib as plt
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from pathlib import Path
@@ -58,6 +59,10 @@ def main():
     log_dir.mkdir(exist_ok=True, parents=True)
     writer = SummaryWriter(log_dir=str(log_dir))
 
+    reconstruction_losses = []
+    style_losses = []
+    total_losses = []
+
     print("Start Training on ", device)
     for epoch in range(args.e):
         for i, (content_images, style_images) in enumerate(zip(content_loader, style_loader)):
@@ -103,7 +108,30 @@ def main():
                     sample_filename = sample_dir / f'sample_epoch_{epoch}_iter_{i}.png'
                     torchvision.utils.save_image(sample_output, sample_filename, nrow=8)
 
+        # Append the loss values to the lists
+        reconstruction_losses.append(loss_reconstruction.item())
+        style_losses.append(style_loss.item())
+        total_losses.append(loss.item())
+
     writer.close()
+
+    # Create a plot to visualize the loss values
+    plt.figure(figsize=(10, 6))
+    plt.plot(reconstruction_losses, label='Reconstruction Loss')
+    plt.plot(style_losses, label='Style Loss')
+    plt.plot(total_losses, label='Total Loss')
+    plt.xlabel('Iteration')
+    plt.ylabel('Loss')
+    plt.title('Loss Comparison')
+    plt.legend()
+
+    # Add a timestamp to the figure's name
+    figure_name = f'loss_plot.png'
+
+    # Save the plot to the "loss_plots" folder
+    loss_plot_path = Path('./loss_plots')
+    loss_plot_path.mkdir(exist_ok=True, parents=True)
+    plt.savefig(loss_plot_path / figure_name)
 
 if __name__ == '__main__':
     main()
