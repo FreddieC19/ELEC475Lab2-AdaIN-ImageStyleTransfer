@@ -150,7 +150,7 @@ class AdaIN_net(nn.Module):
     def forward(self, content, style, alpha=1.0):
         assert 0 <= alpha <= 1
         if self.training:  # training
-            # Encode the content and style images
+            # Encode images
             content_features = self.encode(content)
             style_features = self.encode(style)
 
@@ -160,11 +160,10 @@ class AdaIN_net(nn.Module):
 
             return loss_c, loss_s
         else:  # inference
-            # Encode the content image
+            # Encode images
             content_features = self.encode(content)
             style_features = self.encode(style)
 
-            # Resize style features to match content features' spatial dimensions
             style_features_resized = [
                 nn.functional.interpolate(sf, size=content_features[-1].shape[-2:], mode='nearest') for sf in
                 style_features]
