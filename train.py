@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
+from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from pathlib import Path
 from tensorboardX import SummaryWriter
@@ -50,7 +51,8 @@ def main():
     content_dataset = custom_dataset(dir=args.content_dir, transform=transform)
     content_loader = DataLoader(content_dataset, batch_size=args.b, shuffle=True, num_workers=4)  # Reduced num_workers
 
-    optimizer = optim.Adam(model.decoder.parameters(), lr=1e-4)
+    optimizer = optim.Adam(model.decoder.parameters(), lr=0.001)
+    scheduler = StepLR(optimizer, step_size=5, gamma=0.5)
 
     log_dir = Path('./logs')
     log_dir.mkdir(exist_ok=True, parents=True)
@@ -73,12 +75,13 @@ def main():
             num_elements = content_features[-1].size(1) * content_features[-1].size(2)
             style_loss /= num_elements
 
-            style_loss_weight = 1e-6
+            style_loss_weight = 1e-4
             loss = loss_reconstruction + style_loss_weight * style_loss
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            scheduler.step()
 
             print(f'Epoch [{epoch + 1}/{args.e}], Step [{i + 1}/{len(content_loader)}], '
                   f'Reconstruction Loss: {loss_reconstruction.item():.4f}, Style Loss: {style_loss.item():.4f}')
