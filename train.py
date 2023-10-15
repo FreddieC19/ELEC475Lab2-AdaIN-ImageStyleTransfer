@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
-import matplotlib as plt
+import matplotlib.pyplot as plt
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from pathlib import Path
@@ -15,7 +15,7 @@ from AdaIN_net import AdaIN_net, encoder_decoder
 def main():
     parser = argparse.ArgumentParser(description="Train AdaIN Style Transfer Model")
     parser.add_argument("-content_dir", type=str, default="datasets/COCO1K/", help="Path to content images directory")
-    parser.add_argument("-style_dir", type=str, default="datasets/WikiArt1k/", help="Path to style images directory")
+    parser.add_argument("-style_dir", type=str, default="datasets/WikiArt1kSame/", help="Path to style images directory")
     parser.add_argument("-gamma", type=float, default=1.0, help="Alpha blending parameter for AdaIN")
     parser.add_argument("-e", type=int, default=20, help="Number of epochs")
     parser.add_argument("-b", type=int, default=8, help="Batch size")
