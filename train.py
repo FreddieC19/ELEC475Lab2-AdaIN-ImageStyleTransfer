@@ -5,7 +5,7 @@ import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
-from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import ExponentialLR, StepLR
 from torch.utils.data import DataLoader
 from pathlib import Path
 from tensorboardX import SummaryWriter
@@ -53,7 +53,7 @@ def main():
     content_loader = DataLoader(content_dataset, batch_size=args.b, shuffle=True, num_workers=4)  # Reduced num_workers
 
     optimizer = optim.Adam(model.decoder.parameters(), lr=0.0001)
-    scheduler = ExponentialLR(optimizer, gamma=0.5)  # Use ExponentialLR with gamma
+    scheduler = StepLR(optimizer, step_size=10, gamma=0.5)
 
     log_dir = Path('./logs')
     log_dir.mkdir(exist_ok=True, parents=True)
@@ -81,6 +81,7 @@ def main():
             style_loss /= num_elements
 
             style_loss_weight = args.gamma  # Use the gamma argument
+
             loss = loss_reconstruction + style_loss_weight * style_loss
 
             optimizer.zero_grad()
