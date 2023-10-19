@@ -4,13 +4,13 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
-from torch.optim.lr_scheduler import ExponentialLR, StepLR
+from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader
 from pathlib import Path
 from tensorboardX import SummaryWriter
 from custom_dataset import custom_dataset
 from AdaIN_net import AdaIN_net, encoder_decoder
+import matplotlib.pyplot as plt
 
 def main():
     parser = argparse.ArgumentParser(description="Train AdaIN Style Transfer Model")
@@ -53,12 +53,13 @@ def main():
     content_loader = DataLoader(content_dataset, batch_size=args.b, shuffle=True, num_workers=4)  # Reduced num_workers
 
     optimizer = optim.Adam(model.decoder.parameters(), lr=0.0001)
-    scheduler = StepLR(optimizer, step_size=10, gamma=0.5)
+    scheduler = ExponentialLR(optimizer, gamma=0.5)  # Use ExponentialLR with gamma
 
     log_dir = Path('./logs')
-    log_dir.mkdir(exist_ok=True, parents=True)
+    log_dir.mkdir (exist_ok=True, parents=True)
     writer = SummaryWriter(log_dir=str(log_dir))
 
+    # Create lists to store loss values
     reconstruction_losses = []
     style_losses = []
     total_losses = []
@@ -106,13 +107,13 @@ def main():
                 with torch.no_grad():
                     sample_output = model.decode(content_features[-1])
                     sample_output = sample_output.clamp(0, 1)
-                    sample_filename = sample_dir / f'sample_epoch_{epoch}_iter_{i}.png'
+                    sample_filename = sample_dir / f'{args.l}.png'
                     torchvision.utils.save_image(sample_output, sample_filename, nrow=8)
 
-        # Append the loss values to the lists
-        reconstruction_losses.append(loss_reconstruction.item())
-        style_losses.append(style_loss.item())
-        total_losses.append(loss.item())
+            # Append the loss values to the lists
+            reconstruction_losses.append(loss_reconstruction.item())
+            style_losses.append(style_loss.item())
+            total_losses.append(loss.item())
 
     writer.close()
 
