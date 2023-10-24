@@ -48,7 +48,7 @@ def main():
     content_dataset = custom_dataset(dir=args.content_dir, transform=transform)
     content_loader = DataLoader(content_dataset, batch_size=args.b, shuffle=True, num_workers=4)  # Reduced num_workers
 
-    optimizer = optim.Adam(model.decoder.parameters(), lr=1e-5)
+    optimizer = optim.Adam(model.decoder.parameters(), lr=1e-4)
     scheduler = StepLR(optimizer, step_size=5, gamma=0.9)
 
     content_losses = []
@@ -72,7 +72,7 @@ def main():
             num_elements = content_features[-1].size(1) * content_features[-1].size(2)
             style_loss /= num_elements
 
-            style_loss_weight = 0.1
+            style_loss_weight = 1e-3
             loss = loss_content + style_loss_weight * style_loss
 
             optimizer.zero_grad()
